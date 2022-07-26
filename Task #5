@@ -2,45 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Alarm : MonoBehaviour
+public class Door : MonoBehaviour
 {
-    [SerializeField] private AudioSource _audioSource;
-    private float _minVolume = 0.0f;
-    private float _maxVolume = 1.0f;
-    private float _increaseRate = 0.2f;
-    private bool _audioIsStoping = false;
-
-
-    private void Start()
-    {
-        _audioSource.volume = _minVolume;
-    }
-
-    private void Update()
-    {
-        if (_audioSource.isPlaying && _audioIsStoping == false)
-        {
-            _audioSource.volume += Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
-        }
-        
-        if (_audioIsStoping == true)
-        {
-            _audioSource.volume -= Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
-
-            if (_audioSource.volume <= _minVolume)
-            {
-                _audioSource.Stop();
-                _audioIsStoping = false;
-            }
-        }
-    }
+    [SerializeField] private GameObject _alarm;
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            _audioIsStoping = false;
-            _audioSource.Play();
+            _alarm.GetComponent<Alarm>().SwitchAlarmTrigger();
+            StartCoroutine(_alarm.GetComponent<Alarm>().StartAlarm());
         }
     }
 
@@ -48,7 +19,61 @@ public class Alarm : MonoBehaviour
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            _audioIsStoping = true;
+            _alarm.GetComponent<Alarm>().SwitchAlarmTrigger();
+            StartCoroutine(_alarm.GetComponent<Alarm>().StopAlarm());
+        }
+    }
+}
+
+public class Alarm : MonoBehaviour
+{
+    [SerializeField] private AudioSource _audioSource;
+    private float _minVolume = 0.0f;
+    private float _maxVolume = 1.0f;
+    private float _increaseRate = 0.2f;
+    private bool _isAlarm = false;
+
+    private void Start()
+    {
+        _audioSource.volume = _minVolume;
+    }
+
+    public void SwitchAlarmTrigger()
+    {
+        if (_isAlarm)
+            _isAlarm = false;
+        else
+            _isAlarm = true;
+    }
+
+    public IEnumerator StartAlarm()
+    {
+        while (_audioSource.volume < _maxVolume && _isAlarm)
+        {
+            if (_audioSource.volume == _minVolume)
+            {
+                _audioSource.Play();
+                Debug.Log("Play");
+            }
+
+            _audioSource.volume += Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
+            yield return null;
+        }
+    }
+
+    public IEnumerator StopAlarm()
+    {
+        while (_audioSource.volume > _minVolume && !_isAlarm)
+        {
+            _audioSource.volume -= Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
+
+            if (_audioSource.volume == _minVolume)
+            {
+                _audioSource.Stop();
+                Debug.Log("Stop");
+            }
+
+            yield return null;
         }
     }
 }
