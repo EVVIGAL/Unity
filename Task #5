@@ -10,7 +10,7 @@ public class Door : MonoBehaviour
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            _alarm.isEntered(true);
+            _alarm.isEntered();
         }
     }
 
@@ -18,7 +18,7 @@ public class Door : MonoBehaviour
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            _alarm.isEntered(false);
+            _alarm.isOut();
         }
     }
 }
@@ -28,46 +28,66 @@ public class Alarm : MonoBehaviour
     [SerializeField] private AudioSource _audioSource;
     private float _minVolume = 0.0f;
     private float _maxVolume = 1.0f;
-    private float _increaseRate = 0.2f;
-    private bool _alarmIsActivated = false;
+    private float _increaseRate = 0.15f;
+    private float _targetVolume;
+    private IEnumerator _coroutine;
+    private bool _coroutineIsWorking;
 
     private void Start()
     {
+        _coroutine = ChangeVolume();
         _audioSource.volume = _minVolume;
     }
 
-    public void isEntered(bool isEntered)
+    public void Update()
     {
-        _alarmIsActivated = isEntered;
-        StartCoroutine(RunAlarm());
+        if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
+        {
+            _audioSource.Stop();
+        }
     }
 
-    public IEnumerator RunAlarm()
+    public void isEntered()
     {
-        if (_audioSource.volume >= _minVolume)
+        _targetVolume = _maxVolume;
+
+        if (!_audioSource.isPlaying) _audioSource.Play();
+
+        StopCoroutine();
+        StartCoroutine();
+    }
+
+    public void isOut()
+    {
+        _targetVolume = _minVolume;
+        StopCoroutine();
+        StartCoroutine();
+    }
+
+    private IEnumerator ChangeVolume()
+    {
+        while (_audioSource.volume >= _minVolume)
         {
-            while (_alarmIsActivated)
-            {
-                if (!_audioSource.isPlaying)
-                {
-                    _audioSource.Play();
-                }
+            _audioSource.volume = Mathf.MoveTowards(_audioSource.volume, _targetVolume, _increaseRate * Time.deltaTime);
+            yield return null;
+        }       
+    }
 
-                _audioSource.volume += Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
-                yield return null;
-            }
-
-            while (!_alarmIsActivated)
-            {
-                _audioSource.volume -= Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
-
-                if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
-                {
-                    _audioSource.Stop();
-                }
-
-                yield return null;
-            }
+    private void StopCoroutine()
+    {
+        if (_coroutineIsWorking)
+        {
+            StopCoroutine(_coroutine);
+            _coroutineIsWorking = false;
         }
+    }
+
+    private void StartCoroutine()
+    {
+        if (!_coroutineIsWorking)
+        {
+            StartCoroutine(_coroutine);
+            _coroutineIsWorking = true;
+        }      
     }
 }
