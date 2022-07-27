@@ -30,6 +30,12 @@ public class Alarm : MonoBehaviour
     private float _maxVolume = 1.0f;
     private float _increaseRate = 0.2f;
     private bool _alarmIsActivated = false;
+    private float _volumeChange;
+
+    public Alarm()
+    {
+        _volumeChange = Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
+    }
 
     private void Start()
     {
@@ -53,19 +59,20 @@ public class Alarm : MonoBehaviour
                     _audioSource.Play();
                 }
 
-                _audioSource.volume += Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
+                _audioSource.volume += _volumeChange;
                 yield return null;
             }
 
             while (!_alarmIsActivated)
             {
-                _audioSource.volume -= Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
-                yield return null;
+                _audioSource.volume -= _volumeChange;
 
                 if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
                 {
                     _audioSource.Stop();
                 }
+
+                yield return null;
             }
         }
     }
