@@ -46,27 +46,27 @@ public class Alarm : MonoBehaviour
     {
         if (_audioSource.volume >= _minVolume)
         {
-            if (_alarmIsActivated)
+            while (_alarmIsActivated)
             {
-                _audioSource.Play();
-            }
+                if (!_audioSource.isPlaying)
+                {
+                    _audioSource.Play();
+                }
 
-            while (_audioSource.volume < _maxVolume && _alarmIsActivated)
-            {
                 _audioSource.volume += Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
                 yield return null;
             }
 
-            while (_audioSource.volume > _minVolume && !_alarmIsActivated)
+            while (!_alarmIsActivated)
             {
                 _audioSource.volume -= Mathf.MoveTowards(_minVolume, _maxVolume, _increaseRate * Time.deltaTime);
                 yield return null;
-            }
 
-            if (!_alarmIsActivated)
-            {
-                _audioSource.Stop();
+                if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
+                {
+                    _audioSource.Stop();
+                }
             }
-        }    
+        }
     }
 }
