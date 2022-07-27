@@ -1,0 +1,70 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class SpawnManager : MonoBehaviour
+{
+    [SerializeField] private List<GameObject> _spawners;
+    [SerializeField] private float _waitSeconds;
+    [SerializeField] private bool isStoped;
+
+    public void Start()
+    {
+        StartCoroutine(ManageSpawner());
+    }
+
+    private IEnumerator ManageSpawner()
+    {
+        var wait = new WaitForSeconds(_waitSeconds);
+
+        while (!isStoped)
+        {
+            foreach (var spawner in _spawners)
+            {
+                spawner.GetComponent<Spawner>().Spawn();
+                yield return wait;
+            }
+        }
+    }
+}
+
+public class Capsule : MonoBehaviour
+{
+    [SerializeField] private float _speed;
+
+    public void OnEnable()
+    {
+        StartCoroutine(Move());
+    }
+
+    public void Update()
+    {
+        if(transform.position.y < 0)
+            Destroy(gameObject);
+    }
+
+    private IEnumerator Move()
+    {
+        while(transform.position.y > 0)
+        {
+            transform.Translate(0, 0, _speed * Time.deltaTime);
+            yield return null;
+        }
+    }
+}
+
+public class Spawner : MonoBehaviour
+{
+    [SerializeField] private GameObject _capsule;
+
+    public void Spawn()
+    {
+        StartCoroutine(SpawnObject());
+    }
+
+    private IEnumerator SpawnObject()
+    {
+        Instantiate(_capsule, transform.position, Quaternion.identity);
+        yield return null;
+    }
+}
