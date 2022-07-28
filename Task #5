@@ -1,16 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public class Door : MonoBehaviour
 {
-    public bool IsEntered { get; private set; }
+    public static UnityAction<bool> IsEntered;
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            IsEntered = true;
+            IsEntered?.Invoke(true);
         }
     }
 
@@ -18,55 +19,52 @@ public class Door : MonoBehaviour
     {
         if (collision.TryGetComponent<Player>(out Player player))
         {
-            IsEntered = false;
+            IsEntered?.Invoke(false);
         }
     }
 }
 
 public class Alarm : MonoBehaviour
 {
-    [SerializeField] private Door _door;
     [SerializeField] private AudioSource _audioSource;
+
+    private Coroutine _volumeController;
+
     private float _minVolume = 0.0f;
     private float _maxVolume = 1.0f;
     private float _increaseRate = 0.15f;
     private float _targetVolume;
-    private IEnumerator _coroutine;
-    private bool _coroutineIsWorking;
 
     private void Start()
     {
-        _coroutine = ChangeVolume();
+        Door.IsEntered += IsEntered;
         _audioSource.volume = _minVolume;
     }
 
-    public void Update()
+    private void Update()
     {
-        if (_door.IsEntered) isEntered();
-
-        if (!_door.IsEntered) isOut();
-
         if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
         {
             _audioSource.Stop();
         }
     }
 
-    public void isEntered()
+    public void IsEntered(bool isEntered)
     {
-        _targetVolume = _maxVolume;
+        if (isEntered)
+        {
+            _targetVolume = _maxVolume;
 
-        if (!_audioSource.isPlaying) _audioSource.Play();
+            if (!_audioSource.isPlaying) _audioSource.Play();
 
-        StopCoroutine();
-        StartCoroutine();
-    }
+            RestartCoroutine();
+        }
 
-    public void isOut()
-    {
-        _targetVolume = _minVolume;
-        StopCoroutine();
-        StartCoroutine();
+        if (!isEntered)
+        {
+            _targetVolume = _minVolume;
+            RestartCoroutine();
+        }
     }
 
     private IEnumerator ChangeVolume()
@@ -75,24 +73,12 @@ public class Alarm : MonoBehaviour
         {
             _audioSource.volume = Mathf.MoveTowards(_audioSource.volume, _targetVolume, _increaseRate * Time.deltaTime);
             yield return null;
-        }       
-    }
-
-    private void StopCoroutine()
-    {
-        if (_coroutineIsWorking)
-        {
-            StopCoroutine(_coroutine);
-            _coroutineIsWorking = false;
         }
     }
 
-    private void StartCoroutine()
+    private void RestartCoroutine()
     {
-        if (!_coroutineIsWorking)
-        {
-            StartCoroutine(_coroutine);
-            _coroutineIsWorking = true;
-        }      
+        if (_volumeController != null) StopCoroutine(_volumeController);
+        _volumeController = StartCoroutine(ChangeVolume());
     }
 }
