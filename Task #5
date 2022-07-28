@@ -5,7 +5,7 @@ using UnityEngine.Events;
 
 public class Door : MonoBehaviour
 {
-    public static UnityAction<bool> IsEntered;
+    public UnityAction<bool> IsEntered;
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -26,6 +26,7 @@ public class Door : MonoBehaviour
 
 public class Alarm : MonoBehaviour
 {
+    [SerializeField] private Door _door;
     [SerializeField] private AudioSource _audioSource;
 
     private Coroutine _volumeController;
@@ -33,52 +34,42 @@ public class Alarm : MonoBehaviour
     private float _minVolume = 0.0f;
     private float _maxVolume = 1.0f;
     private float _increaseRate = 0.15f;
-    private float _targetVolume;
 
     private void Start()
     {
-        Door.IsEntered += IsEntered;
+        _door.IsEntered += IsEntered;
         _audioSource.volume = _minVolume;
-    }
-
-    private void Update()
-    {
-        if (_audioSource.isPlaying && _audioSource.volume == _minVolume)
-        {
-            _audioSource.Stop();
-        }
     }
 
     public void IsEntered(bool isEntered)
     {
         if (isEntered)
         {
-            _targetVolume = _maxVolume;
-
             if (!_audioSource.isPlaying) _audioSource.Play();
 
-            RestartCoroutine();
+            RestartCoroutine(_maxVolume);
         }
 
         if (!isEntered)
         {
-            _targetVolume = _minVolume;
-            RestartCoroutine();
+            RestartCoroutine(_minVolume);
         }
     }
 
-    private IEnumerator ChangeVolume()
+    private IEnumerator ChangeVolume(float target)
     {
         while (_audioSource.volume >= _minVolume)
         {
-            _audioSource.volume = Mathf.MoveTowards(_audioSource.volume, _targetVolume, _increaseRate * Time.deltaTime);
+            _audioSource.volume = Mathf.MoveTowards(_audioSource.volume, target, _increaseRate * Time.deltaTime);
             yield return null;
         }
     }
 
-    private void RestartCoroutine()
+    private void RestartCoroutine(float target)
     {
-        if (_volumeController != null) StopCoroutine(_volumeController);
-        _volumeController = StartCoroutine(ChangeVolume());
+        if (_volumeController != null) 
+            StopCoroutine(_volumeController);
+
+        _volumeController = StartCoroutine(ChangeVolume(target));
     }
 }
