@@ -1,0 +1,54 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Events;
+
+public class Berry : MonoBehaviour
+{
+    [SerializeField] private UnityEvent BerryIsEaten;
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.TryGetComponent<Player>(out Player player))
+        {
+            BerryIsEaten?.Invoke();
+            Destroy(gameObject);           
+        }
+    }
+}
+
+public class BerrySpawner : MonoBehaviour
+{
+    [SerializeField] private Berry _berry;
+
+    public void SpawnBerry()
+    {
+        Instantiate(_berry, transform.position, Quaternion.identity);
+    }
+}
+
+public class SpawnController : MonoBehaviour
+{
+    [SerializeField] private BerrySpawner[] _spawners;
+    [SerializeField] private bool _HasBerry;
+
+    private void Start()
+    {
+        _HasBerry = false;
+    }
+
+    private void Update()
+    {
+        if (!_HasBerry)
+        {
+            int _randomIndex = Random.Range(0, _spawners.Length);
+            _spawners[_randomIndex].SpawnBerry();
+            _HasBerry = true;
+        }
+    }
+
+    public void RemoveBerry()
+    {
+        _HasBerry = false;
+    }
+}
