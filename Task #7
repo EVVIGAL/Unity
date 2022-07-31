@@ -93,7 +93,6 @@ public class GroundChecker : MonoBehaviour
     {
         if (collision.TryGetComponent(out Tile tile))
         {
-            Debug.Log("На земле");
             OnGround?.Invoke(true);
         }
     }
@@ -102,7 +101,6 @@ public class GroundChecker : MonoBehaviour
     {
         if (collision.TryGetComponent(out Tile tile))
         {
-            Debug.Log("Не на земле");
             OnGround?.Invoke(false);
         }
     }
