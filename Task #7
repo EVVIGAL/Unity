@@ -3,11 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
+[RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(Animator))]
+
 public class Player : MonoBehaviour
 {
     [SerializeField] private float _speed;
     [SerializeField] private float _jumpForce;
 
+    private const string _animationParameterSpeed = "Speed";
+    private const string _animationParameterOnGround = "onGround";
     private GroundChecker _groundChecker;
     private Animator _animator;
     private Rigidbody2D _rigidBody;
@@ -15,7 +20,7 @@ public class Player : MonoBehaviour
     private bool _faceToRight = true;
     private bool _onGround;
 
-    public UnityAction<bool> PickUp;
+    public event UnityAction<bool> PickUp;
 
     private void Start()
     {
@@ -27,8 +32,14 @@ public class Player : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.TryGetComponent<Enemy>(out Enemy enemy))
+        if (collision.gameObject.TryGetComponent(out Enemy enemy))
             Destroy(gameObject);
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.TryGetComponent(out Berry berry))
+            PickUp?.Invoke(true);
     }
 
     private void Update()
@@ -54,13 +65,13 @@ public class Player : MonoBehaviour
     private void MovePlayer()
     {
         _moveVector.x = Input.GetAxis("Horizontal");
-        _animator.SetFloat("Speed", Mathf.Abs(_moveVector.x));
+        _animator.SetFloat(_animationParameterSpeed, Mathf.Abs(_moveVector.x));
         _rigidBody.velocity = new Vector2(_moveVector.x * _speed, _rigidBody.velocity.y);
     }
 
     private void ReflectPlayer()
     {
-        if((_moveVector.x > 0 && !_faceToRight) || (_moveVector.x < 0 && _faceToRight))
+        if ((_moveVector.x > 0 && !_faceToRight) || (_moveVector.x < 0 && _faceToRight))
         {
             transform.localScale *= new Vector2(-1, 1);
             _faceToRight = !_faceToRight;
@@ -70,26 +81,28 @@ public class Player : MonoBehaviour
     private void CheckOnGround(bool onGround)
     {
         _onGround = onGround;
-        _animator.SetBool("onGround", onGround);
+        _animator.SetBool(_animationParameterOnGround, onGround);
     }
 }
 
 public class GroundChecker : MonoBehaviour
 {
-    public UnityAction<bool> OnGround;
+    public event UnityAction<bool> OnGround;
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if(collision.tag == "Ground")
+        if (collision.TryGetComponent(out Tile tile))
         {
+            Debug.Log("На земле");
             OnGround?.Invoke(true);
         }
     }
 
     private void OnTriggerExit2D(Collider2D collision)
     {
-        if (collision.tag == "Ground")
+        if (collision.TryGetComponent(out Tile tile))
         {
+            Debug.Log("Не на земле");
             OnGround?.Invoke(false);
         }
     }
@@ -120,16 +133,15 @@ public class Enemy : MonoBehaviour
     {
         _target = _points[_currentPoint].position;
 
-        if(transform.position == _target)
+        if (transform.position == _target)
         {
             _currentPoint++;
 
-            if(_currentPoint >= _points.Length)
+            if (_currentPoint >= _points.Length)
                 _currentPoint = 0;
-        }
 
-        if(transform.position == _target)
             RestartCoroutine();
+        }
     }
 
     private IEnumerator MoveToTarget()
@@ -154,7 +166,7 @@ public class Enemy : MonoBehaviour
     }
 }
 
-public class SpawnController : MonoBehaviour
+public class RandomPointSpawner : MonoBehaviour
 {
     [SerializeField] private BerrySpawner[] _spawners;
     [SerializeField] private Player _player;
@@ -202,10 +214,14 @@ public class Berry : MonoBehaviour
 {
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.TryGetComponent<Player>(out Player player))
+        if (collision.TryGetComponent(out Player player))
         {
-            player.PickUp?.Invoke(true);
             Destroy(gameObject);
         }
     }
+}
+
+public class Tile : MonoBehaviour
+{
+
 }
