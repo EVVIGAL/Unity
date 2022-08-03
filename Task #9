@@ -15,7 +15,7 @@ public class Health : MonoBehaviour
 
     private void Start()
     {
-        _currentValue = 95f;
+        _currentValue = _maxValue;
     }
 
     public void Heal()
