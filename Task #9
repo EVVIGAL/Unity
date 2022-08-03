@@ -1,71 +1,79 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-[RequireComponent(typeof(Scrollbar))]
-
 public class Health : MonoBehaviour
 {
-    private Coroutine _valueController;
-    private static string _decreaseValueCoroutineName = "DecreaseValue";
-    private static string _increaseValueCoroutineName = "IncreaseValue";
     private float _maxValue = 100f;
     private float _minValue = 0f;
     private float _currentValue;
-    private float _changedValue;
-    private float _damage = 20f;
-    private float _heal = 20f;
-    private float _scrollSpeed = 40f;
+    private float _valueToChangeHealth = 10f;
+
+    public float MaxValue => _maxValue;
+
+    public event UnityAction<float> OnHealthChange;
 
     private void Start()
     {
         _currentValue = _maxValue;
-        _changedValue = _currentValue;
-    }
-
-    private void FixedUpdate()
-    {
-        gameObject.GetComponent<Scrollbar>().size = _currentValue / _maxValue;
     }
 
     public void Heal()
     {
-        RestartCoroutine(_increaseValueCoroutineName);
+        if (_currentValue <= _maxValue)
+        {
+            _currentValue += _valueToChangeHealth;
+            OnHealthChange?.Invoke(_currentValue);
+        }
     }
 
     public void TakeDamage()
     {
-        RestartCoroutine(_decreaseValueCoroutineName);
+        if (_currentValue > _minValue)
+        {
+            _currentValue -= _valueToChangeHealth;
+            OnHealthChange?.Invoke(_currentValue);
+        }
+    }
+}
+
+[RequireComponent(typeof(Scrollbar))]
+
+public class DisplayHealth : MonoBehaviour
+{
+    [SerializeField] private Health _health;
+
+    private Scrollbar _scrollbar;
+    private Coroutine _valueController;
+    private float _scrollSpeed = 0.4f;
+
+    private void Start()
+    {
+        _scrollbar = GetComponent<Scrollbar>();
+        _health.OnHealthChange += RestartCoroutine;
     }
 
-    private IEnumerator DecreaseValue()
+    private void OnDisable()
     {
-        _changedValue -= _damage;
+        _health.OnHealthChange -= RestartCoroutine;
+    }
 
-        while (_currentValue > _minValue)
+    private IEnumerator ChangeValue(float target)
+    {
+        target /= _health.MaxValue;
+
+        while (_scrollbar.size >= 0 && _scrollbar.size <= 1)
         {
-            _currentValue = Mathf.MoveTowards(_currentValue, _changedValue, _scrollSpeed * Time.deltaTime);
+            _scrollbar.size = Mathf.MoveTowards(_scrollbar.size, target, _scrollSpeed * Time.deltaTime);
             yield return null;
         }
     }
 
-    private IEnumerator IncreaseValue()
-    {
-        _changedValue += _heal;
-
-        while (_currentValue < _maxValue)
-        {
-            _currentValue = Mathf.MoveTowards(_currentValue, _changedValue, _scrollSpeed * Time.deltaTime);
-            yield return null;
-        }
-    }
-
-    private void RestartCoroutine(string coroutineName)
+    private void RestartCoroutine(float target)
     {
         if (_valueController != null)
             StopCoroutine(_valueController);
 
-        _valueController = StartCoroutine(coroutineName);
+        _valueController = StartCoroutine(ChangeValue(target));
     }
 }
