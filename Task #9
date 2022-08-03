@@ -11,19 +11,19 @@ public class Health : MonoBehaviour
 
     public float MaxValue => _maxValue;
 
-    public event UnityAction<float> OnHealthChange;
+    public event UnityAction<float> HealthChanged;
 
     private void Start()
     {
-        _currentValue = _maxValue;
+        _currentValue = 95f;
     }
 
     public void Heal()
     {
         if (_currentValue <= _maxValue)
         {
-            _currentValue += _valueToChangeHealth;
-            OnHealthChange?.Invoke(_currentValue);
+            _currentValue = Mathf.Clamp(_currentValue += _valueToChangeHealth, _minValue, _maxValue);
+            HealthChanged?.Invoke(_currentValue);
         }
     }
 
@@ -31,8 +31,8 @@ public class Health : MonoBehaviour
     {
         if (_currentValue > _minValue)
         {
-            _currentValue -= _valueToChangeHealth;
-            OnHealthChange?.Invoke(_currentValue);
+            _currentValue = Mathf.Clamp(_currentValue -= _valueToChangeHealth, _minValue, _maxValue);
+            HealthChanged?.Invoke(_currentValue);
         }
     }
 }
@@ -50,12 +50,12 @@ public class DisplayHealth : MonoBehaviour
     private void Start()
     {
         _scrollbar = GetComponent<Scrollbar>();
-        _health.OnHealthChange += RestartCoroutine;
+        _health.HealthChanged += RestartCoroutine;
     }
 
     private void OnDisable()
     {
-        _health.OnHealthChange -= RestartCoroutine;
+        _health.HealthChanged -= RestartCoroutine;
     }
 
     private IEnumerator ChangeValue(float target)
