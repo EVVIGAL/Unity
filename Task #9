@@ -1,0 +1,71 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+[RequireComponent(typeof(Scrollbar))]
+
+public class Health : MonoBehaviour
+{
+    private Coroutine _valueController;
+    private static string _decreaseValueCoroutineName = "DecreaseValue";
+    private static string _increaseValueCoroutineName = "IncreaseValue";
+    private float _maxValue = 100f;
+    private float _minValue = 0f;
+    private float _currentValue;
+    private float _changedValue;
+    private float _damage = 20f;
+    private float _heal = 20f;
+    private float _scrollSpeed = 40f;
+
+    private void Start()
+    {
+        _currentValue = _maxValue;
+        _changedValue = _currentValue;
+    }
+
+    private void FixedUpdate()
+    {
+        gameObject.GetComponent<Scrollbar>().size = _currentValue / _maxValue;
+    }
+
+    public void Heal()
+    {
+        RestartCoroutine(_increaseValueCoroutineName);
+    }
+
+    public void TakeDamage()
+    {
+        RestartCoroutine(_decreaseValueCoroutineName);
+    }
+
+    private IEnumerator DecreaseValue()
+    {
+        _changedValue -= _damage;
+
+        while (_currentValue > _minValue)
+        {
+            _currentValue = Mathf.MoveTowards(_currentValue, _changedValue, _scrollSpeed * Time.deltaTime);
+            yield return null;
+        }
+    }
+
+    private IEnumerator IncreaseValue()
+    {
+        _changedValue += _heal;
+
+        while (_currentValue < _maxValue)
+        {
+            _currentValue = Mathf.MoveTowards(_currentValue, _changedValue, _scrollSpeed * Time.deltaTime);
+            yield return null;
+        }
+    }
+
+    private void RestartCoroutine(string coroutineName)
+    {
+        if (_valueController != null)
+            StopCoroutine(_valueController);
+
+        _valueController = StartCoroutine(coroutineName);
+    }
+}
