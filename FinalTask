@@ -1,0 +1,192 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Spawner : MonoBehaviour
+{
+    [SerializeField] private Enemy _enemy;
+    [SerializeField] private float _timeBtwSpawn;
+    [SerializeField] private float _spawnDelay;
+
+    private int _numObjects = 1;
+    private float _radius = 7f;
+
+    private void Update()
+    {
+        if (_spawnDelay > 0)
+            _spawnDelay -= Time.deltaTime;
+
+        if (_spawnDelay <= 0)
+        {
+            Spawn();
+            _spawnDelay = _timeBtwSpawn;
+        }
+    }
+
+    private void Spawn()
+    {
+        Vector3 center = transform.position;
+
+        for (int i = 0; i < _numObjects; i++)
+        {
+            Vector3 position = RandomCircle(center, _radius);
+            Instantiate(_enemy, position, Quaternion.identity);
+        }
+    }
+
+    private Vector3 RandomCircle(Vector3 center, float radius)
+    {
+        float angle = Random.value * 360;
+        Vector3 position;
+        position.x = center.x + radius * Mathf.Sin(angle * Mathf.Deg2Rad);
+        position.y = center.y + radius * Mathf.Cos(angle * Mathf.Deg2Rad);
+        position.z = center.z;
+        return position;
+    }
+}
+
+public class Enemy : MonoBehaviour
+{
+    [SerializeField] private float _damage;
+    [SerializeField] private float _speed;
+    [SerializeField] private float _health;
+
+    private Player _player;
+
+    private void OnEnable()
+    {
+        _player = FindObjectOfType<Player>();
+    }
+
+    private void Update()
+    {
+        Move();
+
+        if (_health <= 0)
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    public void TakeDamage(float damage)
+    {
+        _health -= damage;
+    }
+
+    private void Move()
+    {
+        transform.position = Vector3.MoveTowards(transform.position, _player.transform.position, _speed * Time.deltaTime);
+    }
+}
+
+[RequireComponent(typeof(Rigidbody2D))]
+
+public class Bullet : MonoBehaviour
+{
+    [SerializeField] private float _speed;
+    [SerializeField] private float _damage;
+
+    private Player _player;
+    private Rigidbody2D _rigidBody;
+    private float _timeToDestroy;
+
+    private void OnEnable()
+    {
+        _timeToDestroy = 4f;
+        _rigidBody = GetComponent<Rigidbody2D>();
+        _player = FindObjectOfType<Player>();
+        Destroy(gameObject, _timeToDestroy);
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.TryGetComponent(out Enemy enemy))
+        {
+            enemy.TakeDamage(_damage);
+            Destroy(gameObject);
+        }
+    }
+
+    public void SetTarget(Enemy target)
+    {
+        _rigidBody.velocity = target.transform.position.normalized * _speed;
+    }
+}
+
+[RequireComponent(typeof(CircleCollider2D))]
+
+public class Player : MonoBehaviour
+{
+    [SerializeField] private List<Enemy> _enemies = new();
+    [SerializeField] private Bullet _bullet;
+    [SerializeField] private float _maxHealth;
+    [SerializeField] private float _currentHealth;
+    [SerializeField] private float _shootDelay;
+    [SerializeField] private float _timeBtwShoot;
+
+    private Enemy targetEnemy;
+    private CircleCollider2D _collider;
+
+    private void Start()
+    {
+        _collider = GetComponent<CircleCollider2D>();
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.TryGetComponent(out Enemy enemy))
+        {
+            _enemies.Add(enemy);          
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if (collision.TryGetComponent(out Enemy enemy))
+        {
+            _enemies.Remove(enemy);
+        }
+    }
+
+    private void Update()
+    {
+        if(_shootDelay > 0)
+            _shootDelay -= Time.deltaTime;
+
+        if (_enemies.Count > 0)
+        {
+            targetEnemy = GetTarget();
+
+            if(_shootDelay <= 0 && targetEnemy != null)
+            {
+                Shoot(targetEnemy);
+                _shootDelay = _timeBtwShoot;
+            }
+        }
+    }
+
+    public void Shoot(Enemy target)
+    {
+        Instantiate(_bullet, transform.position, Quaternion.identity).SetTarget(target);
+    }
+
+    private Enemy GetTarget()
+    {
+        float distance;
+        float minDistance = _collider.radius;
+        Enemy nearestEnemy = null;
+
+        foreach (Enemy enemy in _enemies)
+        {
+            distance = Vector3.Distance(transform.position, enemy.transform.position);
+
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                nearestEnemy = enemy;
+            }
+        }
+
+        return nearestEnemy;
+    }
+}
