@@ -1,15 +1,96 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
-public class Spawner : MonoBehaviour
+public class EnemyCounter : MonoBehaviour
 {
-    [SerializeField] private Enemy _enemy;
+    [SerializeField] private Spawner _enemySpawner;
+    [SerializeField] private int _needToUpgradeEnemy;
+
+    private int _enemySpawned = 0;
+
+    private void OnEnable()
+    {
+        _enemySpawner.isSpawned += IncreaseCounter;
+    }
+
+    private void OnDisable()
+    {
+        _enemySpawner.isSpawned -= IncreaseCounter;
+    }
+
+    private void Update()
+    {
+        EnemyLevelUp();
+    }
+
+    private void IncreaseCounter()
+    {
+        _enemySpawned++;
+    }
+
+    private void EnemyLevelUp()
+    {
+        if (_enemySpawned >= _needToUpgradeEnemy)
+        {
+            _enemySpawner.LevelUp();
+            _enemySpawned = 0;
+            _needToUpgradeEnemy += _needToUpgradeEnemy;
+        }
+    }
+}
+
+public class EnemyMover : MonoBehaviour
+{
+    [SerializeField] private float _speed;
+
+    private Player _player;
+
+    private void OnEnable()
+    {
+        _player = FindObjectOfType<Player>();
+        LookAtPlayer();
+    }
+
+    private void Update()
+    {
+        Move();
+    }
+
+    public void LevelUp(float speed)
+    {
+        _speed += speed;
+    }
+
+    private void LookAtPlayer()
+    {
+        var direction = transform.position - _player.transform.position;
+        var angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0, 0, angle);
+    }
+
+    private void Move()
+    {
+        transform.position = Vector3.MoveTowards(transform.position, _player.transform.position, _speed * Time.deltaTime);
+    }
+}
+
+public class Spawner : Pool
+{
+    [SerializeField] private GameObject _enemy;
     [SerializeField] private float _timeBtwSpawn;
     [SerializeField] private float _spawnDelay;
 
+    public event UnityAction isSpawned;
+
     private int _numObjects = 1;
-    private float _radius = 7f;
+    private float _radius = 9f;
+
+    private void Start()
+    {
+        Initialize(_enemy);
+    }
 
     private void Update()
     {
@@ -18,20 +99,24 @@ public class Spawner : MonoBehaviour
 
         if (_spawnDelay <= 0)
         {
-            Spawn();
-            _spawnDelay = _timeBtwSpawn;
+            for(int i=0; i< _numObjects; i++)
+            {
+                if (TryGetObject(out GameObject enemy))
+                {
+                    Spawn(enemy);
+                    isSpawned?.Invoke();
+                    _spawnDelay = _timeBtwSpawn;
+                }
+            }          
         }
     }
 
-    private void Spawn()
+    private void Spawn(GameObject enemy)
     {
         Vector3 center = transform.position;
-
-        for (int i = 0; i < _numObjects; i++)
-        {
-            Vector3 position = RandomCircle(center, _radius);
-            Instantiate(_enemy, position, Quaternion.identity);
-        }
+        Vector3 position = RandomCircle(center, _radius);
+        enemy.transform.position = position;
+        enemy.SetActive(true);
     }
 
     private Vector3 RandomCircle(Vector3 center, float radius)
@@ -48,34 +133,36 @@ public class Spawner : MonoBehaviour
 public class Enemy : MonoBehaviour
 {
     [SerializeField] private float _damage;
-    [SerializeField] private float _speed;
     [SerializeField] private float _health;
 
-    private Player _player;
+    public event UnityAction isInactive;
+
+    private float _currentHealth;
 
     private void OnEnable()
     {
-        _player = FindObjectOfType<Player>();
+        _currentHealth = _health;
     }
 
     private void Update()
     {
-        Move();
-
-        if (_health <= 0)
+        if (_currentHealth <= 0)
         {
-            Destroy(gameObject);
+            gameObject.SetActive(false);
+            isInactive?.Invoke();
+            _currentHealth = _health;
         }
     }
 
     public void TakeDamage(float damage)
     {
-        _health -= damage;
-    }
+        _currentHealth -= damage;
+    }  
 
-    private void Move()
+    public void LevelUp(float damage, float health)
     {
-        transform.position = Vector3.MoveTowards(transform.position, _player.transform.position, _speed * Time.deltaTime);
+        _damage += damage;
+        _health += health;
     }
 }
 
@@ -88,14 +175,11 @@ public class Bullet : MonoBehaviour
 
     private Player _player;
     private Rigidbody2D _rigidBody;
-    private float _timeToDestroy;
 
     private void OnEnable()
     {
-        _timeToDestroy = 4f;
         _rigidBody = GetComponent<Rigidbody2D>();
         _player = FindObjectOfType<Player>();
-        Destroy(gameObject, _timeToDestroy);
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -103,8 +187,13 @@ public class Bullet : MonoBehaviour
         if (collision.TryGetComponent(out Enemy enemy))
         {
             enemy.TakeDamage(_damage);
-            Destroy(gameObject);
+            gameObject.SetActive(false);
         }
+    }
+
+    private void OnBecameInvisible()
+    {
+        gameObject.SetActive(false);
     }
 
     public void SetTarget(Enemy target)
@@ -115,10 +204,10 @@ public class Bullet : MonoBehaviour
 
 [RequireComponent(typeof(CircleCollider2D))]
 
-public class Player : MonoBehaviour
+public class Player : Pool
 {
     [SerializeField] private List<Enemy> _enemies = new();
-    [SerializeField] private Bullet _bullet;
+    [SerializeField] private GameObject _bullet;
     [SerializeField] private float _maxHealth;
     [SerializeField] private float _currentHealth;
     [SerializeField] private float _shootDelay;
@@ -130,13 +219,14 @@ public class Player : MonoBehaviour
     private void Start()
     {
         _collider = GetComponent<CircleCollider2D>();
+        Initialize(_bullet);
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if(collision.TryGetComponent(out Enemy enemy))
+        if (collision.TryGetComponent(out Enemy enemy))
         {
-            _enemies.Add(enemy);          
+            _enemies.Add(enemy);
         }
     }
 
@@ -150,24 +240,31 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
-        if(_shootDelay > 0)
+        if (_shootDelay > 0)
             _shootDelay -= Time.deltaTime;
 
         if (_enemies.Count > 0)
         {
             targetEnemy = GetTarget();
 
-            if(_shootDelay <= 0 && targetEnemy != null)
+            if (_shootDelay <= 0 && targetEnemy != null)
             {
-                Shoot(targetEnemy);
-                _shootDelay = _timeBtwShoot;
+                if (TryGetObject(out GameObject bullet))
+                {
+                    Shoot(targetEnemy, bullet, transform.position);
+                    _shootDelay = _timeBtwShoot;
+                }
             }
         }
     }
 
-    public void Shoot(Enemy target)
+    public void Shoot(Enemy target, GameObject bullet, Vector3 position)
     {
-        Instantiate(_bullet, transform.position, Quaternion.identity).SetTarget(target);
+        bullet.SetActive(true);
+        bullet.transform.position = position;
+
+        if (bullet.TryGetComponent(out Bullet projectile))
+            projectile.SetTarget(target);
     }
 
     private Enemy GetTarget()
